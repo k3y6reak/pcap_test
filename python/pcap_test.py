@@ -13,7 +13,8 @@ def TCP_Header(tcp_hdr):
     dst_port = tcp_hdr[1]
     seq_num = tcp_hdr[2]
     ack_num = tcp_hdr[3]
-    offset_reserved = tcp_hdr[4]
+    hdr_len = ((tcp_hdr[4] & 0xF0) >> 4)*4
+    #offset_reserved = (tcp_hdr[4] & 0x0F)
     tcp_flag = tcp_hdr[5]
     window = tcp_hdr[6]
     checksum = tcp_hdr[7]
@@ -21,6 +22,8 @@ def TCP_Header(tcp_hdr):
 
     print "Destination Port: ", dst_port
     print "Source Port: ", src_port
+    print "TCP Header Len: ", hdr_len
+    return hdr_len
 
 def IP_Header(ip_hdr):
     ip_hdr = struct.unpack("!BBHHHBBH4s4s", ip_hdr)
@@ -41,12 +44,14 @@ def IP_Header(ip_hdr):
         print "(IPv4)"
     if version == 6:
         print "(IPv6)"
-    print "hdr_len: ", hdr_len
+    print "IP Header len: ", hdr_len
     print "Destination IP: ", dst_ip
     print "Source IP", src_ip
     print "Protocol: ", protocol,
     if protocol == 6:
         print "(TCP)"
+
+    return total_len, hdr_len
 
 def Ethernet_Header(ether_hdr):
     ether_hdr = struct.unpack("!6s6s2s", ether_hdr)
@@ -67,9 +72,19 @@ def main():
         ether_hdr = packet[0:ETHER_HDR_SIZE]
         Ethernet_Header(ether_hdr)
         ip_hdr = packet[ETHER_HDR_SIZE:ETHER_HDR_SIZE+IP_HDR_MIN_SIZE]
-        IP_Header(ip_hdr)
-        tcp_hdr = packet[ETHER_HDR_SIZE+IP_HDR_MIN_SIZE:ETHER_HDR_SIZE+IP_HDR_MIN_SIZE+TCP_HDR_MIN_SIZE]
-        TCP_Header(tcp_hdr)
+        total_len, ip_hdr_len = IP_Header(ip_hdr)
+        tcp_hdr = packet[ETHER_HDR_SIZE+IP_HDR_MIN_SIZE:ETHER_HDR_SIZE+ip_hdr_len+TCP_HDR_MIN_SIZE]
+        tcp_hdr_len = TCP_Header(tcp_hdr)
+
+        break_idx = 0
+        print "DATA: ",
+        for data in packet[ETHER_HDR_SIZE+ip_hdr_len+tcp_hdr_len:] :
+            print binascii.hexlify(data), " ",
+
+            if break_idx == 16:
+                break
+            break_idx += 1
+        print "\n"
 
 if __name__ == '__main__':
     main()
